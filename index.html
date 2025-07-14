@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Brooks Calculator</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0a84ff" />
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+<style>
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: black;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    flex-direction: column;
+  }
+  .calculator {
+    background: grey;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    width: 340px;
+    padding: 20px;
+    transition: background 0.3s;
+  }
+  .display {
+    background: #1e2127;
+    color: #e1e1e1;
+    font-size: 2.2rem;
+    padding: 15px 20px;
+    border-radius: 10px;
+    text-align: right;
+    overflow-wrap: break-word;
+    min-height: 60px;
+    user-select: none;
+  }
+  .buttons {
+    margin-top: 15px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+  button {
+    padding: 14px 0;
+    font-size: 1.1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #e1e1e1;
+    background: green;
+    box-shadow: inset 0 -3px 0 #383c43;
+    transition: background 0.2s ease;
+  }
+  button:hover {
+    background: purple;
+  }
+  button.operator {
+    background: purple;
+  }
+  button.equal {
+    background: #0a84ff;
+    grid-column: span 2;
+    color: white;
+  }
+  button.clear {
+    background: #ff3b30;
+    color: white;
+  }
+  button.memory, button.function {
+    background: #555;
+  }
+  .history {
+    background: #222;
+    color: white;
+    width: 340px;
+    max-height: 150px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+  }
+  .toggle-dark {
+    margin-top: 10px;
+    color: lightgray;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div class="history" id="history"></div>
+<div class="calculator" id="calculator">
+  <div class="display" id="display">0</div>
+  <div class="buttons">
+    <button class="clear" id="clear">C</button>
+    <button class="operator" data-op="(">(</button>
+    <button class="operator" data-op=")">)</button>
+    <button class="operator" data-op="/">÷</button>
+    <button class="memory" id="copy">Copy</button>
+
+    <button data-num="7">7</button>
+    <button data-num="8">8</button>
+    <button data-num="9">9</button>
+    <button class="operator" data-op="*">×</button>
+    <button class="function" data-fn="sqrt">√</button>
+
+    <button data-num="4">4</button>
+    <button data-num="5">5</button>
+    <button data-num="6">6</button>
+    <button class="operator" data-op="-">−</button>
+    <button class="function" data-fn="log">log</button>
+
+    <button data-num="1">1</button>
+    <button data-num="2">2</button>
+    <button data-num="3">3</button>
+    <button class="operator" data-op="+">+</button>
+    <button class="function" data-fn="^">^</button>
+
+    <button data-num="0" style="grid-column: span 2;">0</button>
+    <button data-num=".">.</button>
+    <button class="equal" id="equals">=</button>
+    <button class="function" data-fn="sin">sin</button>
+    <button class="function" data-fn="cos">cos</button>
+    <button class="function" data-fn="tan">tan</button>
+
+    <button class="memory" id="mc">MC</button>
+    <button class="memory" id="mr">MR</button>
+    <button class="memory" id="mplus">M+</button>
+    <button class="memory" id="mminus">M-</button>
+  </div>
+</div>
+<div class="toggle-dark" id="toggleDark">🌗 Toggle Dark/Light</div>
+
+<footer style="text-align:center; color:gray; font-style: oblique; margin-top:10px">
+  Built by James Chirwa © 2025
+</footer>
+
+<script>
+(function(){
+  const display = document.getElementById('display');
+  const buttons = document.querySelectorAll('.buttons button');
+  const history = document.getElementById('history');
+  const toggleDark = document.getElementById('toggleDark');
+  const calculator = document.getElementById('calculator');
+  let expression = '';
+  let memory = 0;
+
+  function safeEval(expr) {
+    expr = expr.replace(/√/g, 'Math.sqrt')
+               .replace(/log/g, 'Math.log10')
+               .replace(/sin/g, 'Math.sin')
+               .replace(/cos/g, 'Math.cos')
+               .replace(/tan/g, 'Math.tan')
+               .replace(/\^/g, '**');
+    try {
+      let result = Function(`return ${expr}`)();
+      if (result === Infinity || result === -Infinity || isNaN(result)) return 'Error';
+      return Number.isInteger(result) ? result : result.toFixed(6).replace(/\.0+$|0+$/, '');
+    } catch {
+      return 'Error';
+    }
+  }
+
+  function updateDisplay() {
+    display.textContent = expression || '0';
+  }
+
+  function addToHistory(entry) {
+    history.innerHTML = `<div>${entry}</div>` + history.innerHTML;
+  }
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const num = btn.getAttribute('data-num');
+      const op = btn.getAttribute('data-op');
+      const fn = btn.getAttribute('data-fn');
+
+      if (btn.id === 'clear') {
+        expression = '';
+        updateDisplay();
+        return;
+      }
+      if (btn.id === 'equals') {
+        if (expression.trim() === '') return;
+        const result = safeEval(expression);
+        addToHistory(expression + ' = ' + result);
+        display.textContent = result;
+        expression = result === 'Error' ? '' : result.toString();
+        return;
+      }
+      if (btn.id === 'copy') {
+        navigator.clipboard.writeText(display.textContent);
+        return;
+      }
+      if (btn.id === 'mr') {
+        expression += memory.toString();
+        updateDisplay();
+        return;
+      }
+      if (btn.id === 'mc') {
+        memory = 0;
+        return;
+      }
+      if (btn.id === 'mplus') {
+        memory += parseFloat(display.textContent) || 0;
+        return;
+      }
+      if (btn.id === 'mminus') {
+        memory -= parseFloat(display.textContent) || 0;
+        return;
+      }
+
+      if (num !== null) {
+        expression += num;
+        updateDisplay();
+        return;
+      }
+      if (op !== null) {
+        if (expression === '' && op !== '(') return;
+        const lastChar = expression.slice(-1);
+        if ('+-*/^'.includes(op) && '+-*/^'.includes(lastChar)) return;
+        expression += op;
+        updateDisplay();
+        return;
+      }
+      if (fn !== null) {
+        expression += fn + '(';
+        updateDisplay();
+        return;
+      }
+    });
+  });
+
+  window.addEventListener('keydown', e => {
+    const key = e.key;
+    if ('0123456789+-*/().^'.includes(key)) {
+      expression += key;
+      updateDisplay();
+    } else if (key === 'Enter') {
+      const result = safeEval(expression);
+      addToHistory(expression + ' = ' + result);
+      display.textContent = result;
+      expression = result === 'Error' ? '' : result.toString();
+    } else if (key === 'Backspace') {
+      expression = expression.slice(0, -1);
+      updateDisplay();
+    } else if (key.toLowerCase() === 'c') {
+      expression = '';
+      updateDisplay();
+    }
+  });
+
+  toggleDark.addEventListener('click', () => {
+    const isDark = document.body.style.background === 'white';
+    document.body.style.background = isDark ? 'black' : 'white';
+    display.style.color = isDark ? '#e1e1e1' : 'black';
+    toggleDark.textContent = isDark ? '🌗 Toggle Dark/Light' : '☀️ Toggle Dark/Light';
+  });
+
+  updateDisplay();
+})();
+</script>
+<script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("service-worker.js")
+      .then(() => console.log("Service Worker registered"));
+  }
+</script>
+</body>
+</html>
