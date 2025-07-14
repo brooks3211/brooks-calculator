@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+    <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#006400">
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('service-worker.js');
+  });
+}
+</script>
+
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Brooks Calculator</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #000;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Splash Screen */
+  #splash-screen {
+    position: fixed;
+    inset: 0;
+    background: black;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    user-select: none;
+    flex-direction: column;
+    color: white;
+  }
+  #splash-screen svg {
+    animation: splashLogoFade 1.8s ease forwards;
+  }
+  #splash-screen h1 {
+    margin-top: 20px;
+    font-weight: 600;
+    font-size: 2rem;
+    letter-spacing: 3px;
+    animation: splashTextFade 1.8s ease forwards;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+  @keyframes splashLogoFade {
+    0% {opacity: 0; transform: scale(0.8);}
+    50% {opacity: 1; transform: scale(1);}
+    100% {opacity: 0; transform: scale(1.1);}
+  }
+  @keyframes splashTextFade {
+    0% {opacity: 0; transform: translateY(20px);}
+    50% {opacity: 1; transform: translateY(0);}
+    100% {opacity: 0; transform: translateY(-20px);}
+  }
+
+  /* Calculator styles */
+  .calculator {
+    background: #444;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    width: 360px;
+    padding: 20px;
+    margin: auto;
+    /* Hidden initially */
+    display: none;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+  .calculator.visible {
+    display: block;
+    opacity: 1;
+  }
+  .display {
+    background: #1e2127;
+    color: #e1e1e1;
+    font-size: 2rem;
+    padding: 15px 20px;
+    border-radius: 10px;
+    text-align: right;
+    overflow-wrap: break-word;
+    min-height: 60px;
+    user-select: none;
+    font-family: monospace;
+  }
+  .buttons {
+    margin-top: 15px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  button {
+    padding: 14px 0;
+    font-size: 1.1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #e1e1e1;
+    background: #006400;
+    box-shadow: inset 0 -3px 0 #003200;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+  button:focus {
+    outline: 2px solid #0af;
+    outline-offset: 2px;
+  }
+  button:hover {
+    background: purple;
+    transform: scale(1.05);
+  }
+  button.operator, button.scientific {
+    background: purple;
+    box-shadow: inset 0 -3px 0 #cc7a00;
+    color: white;
+  }
+  button.operator:hover, button.scientific:hover {
+    background: #a020f0;
+  }
+  button.equal {
+    background: #0a84ff;
+    box-shadow: inset 0 -3px 0 #065fcc;
+    color: white;
+  }
+  button.clear {
+    background: #ff3b30;
+    box-shadow: inset 0 -3px 0 #b23127;
+    color: white;
+  }
+  button.memory {
+    background: #ffa500;
+    box-shadow: inset 0 -3px 0 #cc8400;
+    color: black;
+  }
+
+  /* Footer */
+  footer {
+    margin-top: 15px;
+    color: #ccc;
+    font-size: 0.9rem;
+    user-select: none;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+</style>
+</head>
+<body>
+
+<!-- Splash Screen -->
+<div id="splash-screen" aria-label="Loading Brooks Calculator">
+  <svg width="120" height="120" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <!-- Calculator outline -->
+    <rect x="20" y="15" width="60" height="70" rx="8" ry="8" stroke="white" stroke-width="4" fill="none"/>
+    <!-- Buttons as dots -->
+    <circle cx="40" cy="35" r="5" fill="white"/>
+    <circle cx="60" cy="35" r="5" fill="white"/>
+    <circle cx="40" cy="55" r="5" fill="white"/>
+    <circle cx="60" cy="55" r="5" fill="white"/>
+    <circle cx="40" cy="75" r="5" fill="white"/>
+    <circle cx="60" cy="75" r="5" fill="white"/>
+  </svg>
+
+  <h1>BROOKS CALCULATOR</h1>
+</div>
+
+<!-- Calculator -->
+<div class="calculator" role="application" aria-label="Calculator">
+  <div class="display" id="display" aria-live="polite" aria-atomic="true" aria-label="Calculator display">0</div>
+  <div class="buttons" role="group" aria-label="Calculator buttons">
+    <!-- Memory and Clear -->
+    <button class="clear" id="clear" aria-label="Clear all">C</button>
+    <button class="clear" id="delete" aria-label="Delete last character">⌫</button>
+    <button class="memory" id="memory-clear" aria-label="Memory clear">MC</button>
+    <button class="memory" id="memory-recall" aria-label="Memory recall">MR</button>
+
+    <button class="memory" id="memory-add" aria-label="Memory add">M+</button>
+    <button class="memory" id="memory-subtract" aria-label="Memory subtract">M−</button>
+    <button class="scientific" data-func="sqrt" aria-label="Square root">√</button>
+    <button class="operator" data-op="^" aria-label="Power">^</button>
+
+    <button data-num="7" aria-label="7">7</button>
+    <button data-num="8" aria-label="8">8</button>
+    <button data-num="9" aria-label="9">9</button>
+    <button class="operator" data-op="/" aria-label="Divide">÷</button>
+
+    <button data-num="4" aria-label="4">4</button>
+    <button data-num="5" aria-label="5">5</button>
+    <button data-num="6" aria-label="6">6</button>
+    <button class="operator" data-op="*" aria-label="Multiply">×</button>
+
+    <button data-num="1" aria-label="1">1</button>
+    <button data-num="2" aria-label="2">2</button>
+    <button data-num="3" aria-label="3">3</button>
+    <button class="operator" data-op="-" aria-label="Subtract">−</button>
+
+    <button data-num="0" aria-label="0">0</button>
+    <button data-num="." aria-label="Decimal point">.</button>
+    <button class="equal" id="equals" aria-label="Equals">=</button>
+    <button class="operator" data-op="+" aria-label="Add">+</button>
+
+    <!-- Scientific functions row -->
+    <button class="scientific" data-func="sin" aria-label="Sine">sin</button>
+    <button class="scientific" data-func="cos" aria-label="Cosine">cos</button>
+    <button class="scientific" data-func="tan" aria-label="Tangent">tan</button>
+    <button class="scientific" data-func="log" aria-label="Log base 10">log</button>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer>
+  &copy; 2025 James Chirwa. All rights reserved.
+</footer>
+
+<script>
+(() => {
+  const display = document.getElementById('display');
+  const buttons = document.querySelectorAll('.buttons button');
+  let expression = '';
+  let memory = 0;
+
+  function replacePower(expr) {
+    while (expr.includes('^')) {
+      expr = expr.replace(/(\d+(\.\d+)?|\([^()]+\))\^(\d+(\.\d+)?|\([^()]+\))/g, (match, base, _, exp) => {
+        return `Math.pow(${base},${exp})`;
+      });
+    }
+    return expr;
+  }
+
+  function safeEval(expr) {
+    if (!/^[0-9+\-*/().\s^]+$/.test(expr)) return 'Error';
+    try {
+      expr = replacePower(expr);
+      let result = eval(expr);
+      if (result === Infinity || result === -Infinity) return 'Error';
+      return Number.isInteger(result) ? result : Number(result.toFixed(6));
+    } catch {
+      return 'Error';
+    }
+  }
+
+  function applyFunction(func, val) {
+    val = Number(val);
+    if (isNaN(val)) return 'Error';
+
+    switch (func) {
+      case 'sin': return Math.sin(val);
+      case 'cos': return Math.cos(val);
+      case 'tan': return Math.tan(val);
+      case 'log': return val > 0 ? Math.log10(val) : 'Error';
+      case 'sqrt': return val >= 0 ? Math.sqrt(val) : 'Error';
+      default: return 'Error';
+    }
+  }
+
+  function updateDisplay() {
+    display.textContent = expression || '0';
+  }
+
+  function clearExpression() {
+    expression = '';
+    updateDisplay();
+  }
+
+  function deleteLastChar() {
+    expression = expression.slice(0, -1);
+    updateDisplay();
+  }
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const num = btn.getAttribute('data-num');
+      const op = btn.getAttribute('data-op');
+      const func = btn.getAttribute('data-func');
+
+      switch (btn.id) {
+        case 'clear':
+          clearExpression();
+          return;
+        case 'delete':
+          deleteLastChar();
+          return;
+        case 'memory-clear':
+          memory = 0;
+          return;
+        case 'memory-recall':
+          expression += memory.toString();
+          updateDisplay();
+          return;
+        case 'memory-add': {
+          const val = safeEval(expression);
+          if (val !== 'Error') memory += val;
+          return;
+        }
+        case 'memory-subtract': {
+          const val = safeEval(expression);
+          if (val !== 'Error') memory -= val;
+          return;
+        }
+        case 'equals': {
+          if (!expression.trim()) return;
+          const result = safeEval(expression);
+          if (result === 'Error') {
+            display.textContent = 'Error';
+            expression = '';
+            setTimeout(() => updateDisplay(), 1500);
+          } else {
+            expression = result.toString();
+            display.textContent = expression;
+          }
+          return;
+        }
+      }
+
+      if (func) {
+        const val = safeEval(expression);
+        const result = applyFunction(func, val);
+        if (result === 'Error') {
+          display.textContent = 'Error';
+          expression = '';
+          setTimeout(() => updateDisplay(), 1500);
+        } else {
+          expression = result.toString();
+          display.textContent = expression;
+        }
+        return;
+      }
+
+      if (num !== null) {
+        if (num === '.') {
+          const parts = expression.split(/[\+\-\*\/\^\(\)]/);
+          const lastPart = parts[parts.length - 1];
+          if (lastPart.includes('.')) return;
+          if (lastPart === '') expression += '0';
+        }
+        expression += num;
+        updateDisplay();
+        return;
+      }
+
+      if (op !== null) {
+        if (expression === '' && op !== '(') return;
+        const lastChar = expression.slice(-1);
+        if ('+-*/^'.includes(op) && '+-*/^'.includes(lastChar)) return;
+        expression += op;
+        updateDisplay();
+      }
+    });
+  });
+
+  // Keyboard support
+  window.addEventListener('keydown', e => {
+    const allowedKeys = '0123456789+-*/^().';
+    if (allowedKeys.includes(e.key)) {
+      expression += e.key;
+      updateDisplay();
+    }
+    if (e.key === 'Enter') {
+      const result = safeEval(expression);
+      if (result === 'Error') {
+        display.textContent = 'Error';
+        expression = '';
+        setTimeout(() => updateDisplay(), 1500);
+      } else {
+        expression = result.toString();
+        display.textContent = expression;
+      }
+    }
+    if (e.key === 'Backspace') {
+      deleteLastChar();
+    }
+    if (e.key.toLowerCase() === 'c') {
+      clearExpression();
+    }
+  });
+
+  updateDisplay();
+})();
+
+// Splash screen timing and transition
+window.addEventListener('load', () => {
+  const splash = document.getElementById('splash-screen');
+  const calc = document.querySelector('.calculator');
+
+  setTimeout(() => {
+    splash.style.display = 'none';
+    calc.classList.add('visible');
+  }, 2000);
+});
+</script>
+
+</body>
+</html>

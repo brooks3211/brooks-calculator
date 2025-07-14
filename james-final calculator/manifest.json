@@ -1,0 +1,16 @@
+{
+  "name": "Brooks Calculator",
+  "short_name": "JC Calc",
+  "description": "A scientific calculator by James Chirwa",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#006400",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
